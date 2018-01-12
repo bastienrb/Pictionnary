@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, Text, View, Dimensions, TouchableOpacity, StatusBar} from 'react-native';
+import {StyleSheet, Text, View, Picker, TouchableOpacity, StatusBar, ScrollView} from 'react-native';
 import RNDraw from 'rn-draw';
 import {ColorWheel} from 'react-native-color-wheel';
 import Modal from 'react-native-simple-modal';
@@ -12,8 +12,8 @@ const strokes = [2, 4, 6, 8, 10];
 export default class Game extends React.Component {
 
     static navigationOptions = {
-    title: 'Game'
-  }
+        title: 'Game'
+    }
 
     constructor(props) {
         super(props);
@@ -25,56 +25,82 @@ export default class Game extends React.Component {
             currentWordIndex: 0,
             wordFound: false,
             wordFail: false,
-            gameStarted: false
+            gameStarted: false,
+            displayWord: false,
+            printScore: false,
+            players: this.props.navigation.state.params.playerlist,
+            currentPlayerIndex: 0,
+            givePointTo: false
         };
     }
 
     wordIsFound = () => {
-        this.setState({wordFound: !this.state.wordFound, gameStarted: !this.state.gameStarted})
-        var nextindex = this.state.currentWordIndex + 1;
-            if (this.state.listwords[nextindex]) {
-                this.setState({currentWordIndex: nextindex})
-            }
+        console.log("cc")
+        this.setState({
+            wordFound: !this.state.wordFound,
+            gameStarted: false
+        })
     }
 
 
     onWordFail = () => {
-        this.setState({wordFail: !this.state.wordFail, gameStarted: !this.state.gameStarted})
-        var nextindex = this.state.currentWordIndex + 1;
-            if (this.state.listwords[nextindex]) {
-                this.setState({currentWordIndex: nextindex})
-            }
-        
+        this.setState({
+            wordFail: !this.state.wordFail,
+            gameStarted: false
+        })
     }
-    
-    startGame = () => {
-        this.setState({gameStarted: !this.state.gameStarted})
-        if (this.state.gameStarted) {
-            var nextindex = this.state.currentWordIndex + 1;
-            if (this.state.listwords[nextindex]) {
-                this.setState({currentWordIndex: nextindex})
+
+    seeScore = () => {
+        let data = this.state.players
+        for (let index = 0; index < data.length; index++) {
+            if (data[index].name === this.state.givePointTo) {
+                data[index].score += 1
             }
         }
+        this.setState({
+            players: data,
+            givePointTo: false,
+            printScore: !this.state.printScore,
+            wordFound: false,
+        })
+    }
+
+    nextPlayer = () => {
+        if (this.state.listwords[this.state.currentWordIndex + 1]) {
+            this.setState({
+                currentWordIndex: this.state.currentWordIndex + 1,
+                currentPlayerIndex: this.state.currentPlayerIndex + 1,
+                wordFound: false,
+                wordFail: false,
+                displayWord: false,
+                printScore: false,
+            })
+        }
+        if (!this.state.players[this.state.currentPlayerIndex + 1])
+            this.setState({
+                currentPlayerIndex: 0,
+            })
+    }
+
+
+    startGame = () => {
+        this.setState({gameStarted: !this.state.gameStarted,})
     }
 
     render() {
         return (
             <View style={styles.container}>
-
-
                 <StatusBar hidden={true}/>
-                <Text style={styles.currentWord}>Mot à
-                    dessiner: {this.state.listwords[this.state.currentWordIndex]}</Text>
                 <View style={styles.drawContainer}>
-                    {this.state.gameStarted && 
-                        <CountdownCircle
+                    {this.state.gameStarted &&
+                    <CountdownCircle
                         seconds={60}
                         radius={25}
                         borderWidth={4}
                         color="#F05E9F"
                         bgColor="#fff"
                         onTimeElapsed={this.onWordFail}
-                        />
+                    />
                     }
                     <RNDraw
                         containerStyle={{backgroundColor: 'rgba(0,0,0,0.01)'}}
@@ -110,9 +136,10 @@ export default class Game extends React.Component {
                     justifyContent: 'space-between',
                 }}>
 
-                    {strokes.map((elem) => (
+                    {strokes.map((elem, index) => (
                         this.state.strokeWidth === elem
                             ? <TouchableOpacity
+                                key = {index}
                                 style={{
                                     backgroundColor: this.state.color,
                                     width: elem * 10,
@@ -124,7 +151,7 @@ export default class Game extends React.Component {
                                 onPress={() => this.setState({strokeWidth: elem})}>
                             </TouchableOpacity>
                             : <TouchableOpacity
-
+                                key = {index}
                                 style={{
                                     backgroundColor: this.state.color,
                                     width: elem * 5,
@@ -157,7 +184,16 @@ export default class Game extends React.Component {
                     }}
                     disableOnBackPress={false}>
                     <View>
-                        {!this.state.gameStarted && !this.state.wordFound && !this.state.wordFail &&
+                        {!this.state.gameStarted && !this.state.wordFound && !this.state.wordFail && !this.state.displayWord &&
+                        <View>
+                            <Text style={{color: '#FFF'}}> Let's play
+                                : {this.state.players[this.state.currentPlayerIndex].name}</Text>
+                            <TouchableOpacity style={styles.button}
+                                              onPress={() => this.setState({displayWord: !this.state.displayWord})}><Text
+                                style={{color: '#FFF'}}>See the word !</Text></TouchableOpacity>
+                        </View>
+                        }
+                        {!this.state.gameStarted && !this.state.wordFound && !this.state.wordFail && this.state.displayWord && !this.state.printScore &&
                         <View>
                             <Text style={{color: '#FFF'}}>Mot à dessiner
                                 : {this.state.listwords[this.state.currentWordIndex]}</Text>
@@ -169,10 +205,35 @@ export default class Game extends React.Component {
                         {this.state.wordFound &&
                         <View>
                             <Text style={{color: '#FFF'}}>Félicitations !</Text>
+                            <Picker
+                                selectedValue={this.state.givePointTo}
+                                onValueChange={(itemValue) => this.setState({givePointTo: itemValue})}>
+                                <Picker.Item label="Attribuez le point à ..." value={null}/>
+                                {this.state.players.map((player, index) => (
+                                    <Picker.Item key={index}
+                                                 label={player.name}
+                                                 value={player.name}/>
+                                ))}
+                            </Picker>
                             <TouchableOpacity
                                 style={styles.button}
-                                onPress={this.wordIsFound}>
-                                <Text style={{color: '#FFF'}}>Recommencer</Text>
+                                onPress={this.seeScore}>
+                                <Text style={{color: '#FFF'}}>Score</Text>
+                            </TouchableOpacity>
+                        </View>
+                        }
+                        {this.state.printScore &&
+                        <View>
+                            <Text style={{color: '#FFF'}}>Score :</Text>
+                            <ScrollView>
+                                {this.state.players.map((player, index) => (
+                                    <Text key = {index}>{player.name} {player.score}</Text>
+                                ))}
+                            </ScrollView>
+                            <TouchableOpacity
+                                style={styles.button}
+                                onPress={this.nextPlayer}>
+                                <Text style={{color: '#FFF'}}>Joueur suivant</Text>
                             </TouchableOpacity>
                         </View>
                         }
@@ -181,8 +242,8 @@ export default class Game extends React.Component {
                             <Text style={{color: '#FFF'}}>Dommage !</Text>
                             <TouchableOpacity
                                 style={styles.button}
-                                onPress={this.onWordFail}>
-                                <Text style={{color: '#FFF'}}>Recommencer</Text>
+                                onPress={this.nextPlayer}>
+                                <Text style={{color: '#FFF'}}>Joueur suivant</Text>
                             </TouchableOpacity>
                         </View>
                         }
